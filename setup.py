@@ -6,13 +6,15 @@ from mod_utils.pip import get_pip_git_requirements, get_pip_requirements
 from os import listdir
 from os.path import normpath, join
 from pip import main as pip_main
+from sys import argv
 from setuptools import find_packages
 
 
 def setup():
     try:
-        # need to install custom library (SSLyze) for wg_ssl audit plugin support
-        pip_main(['install', 'git+https://github.com/ZenSecurity/sslyze.git'])
+        if 'egg_info' in argv:
+            # need to install custom library (SSLyze) for wg_ssl audit plugin support
+            pip_main(['install', 'git+https://github.com/ZenSecurity/sslyze.git'])
 
         profiles_dir = 'w3af-repo/profiles'
 
