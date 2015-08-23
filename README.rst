@@ -14,7 +14,7 @@ To install w3af as a module you'll have to follow these steps:
 
 ::
 
-    pip install git+https://github.com/ZenSecurity/w3af-module.git
+    $ pip install git+https://github.com/ZenSecurity/w3af-module.git
 
 After some seconds you should be able to move to any directory and from a
 python interpreter run ``import w3af``.
@@ -55,9 +55,9 @@ Testing the `setup.py` file is easy:
 
 ::
 
-    virtualenv venv
-    . venv/bin/activate
-    rm -rf build/ dist/ w3af.egg-info/
-    python setup.py install --dry-run --record record.txt
+    $ virtualenv venv
+    $ . venv/bin/activate
+    $ rm -rf build/ dist/ w3af.egg-info/
+    $ python setup.py install --dry-run --record record.txt
     # inspect the record.txt file
     
