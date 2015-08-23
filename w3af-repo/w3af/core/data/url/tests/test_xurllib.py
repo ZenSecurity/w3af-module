@@ -42,7 +42,7 @@ from w3af.core.data.dc.urlencoded_form import URLEncodedForm
 from w3af.core.data.dc.headers import Headers
 from w3af.core.data.url.HTTPResponse import DEFAULT_WAIT_TIME
 from w3af.core.controllers.misc.get_unused_port import get_unused_port
-from w3af.core.controllers.ci.moth import get_moth_http
+from w3af.core.controllers.ci.moth import get_moth_http, get_moth_https
 from w3af.core.controllers.misc.temp_dir import get_temp_dir
 from w3af.core.controllers.exceptions import (ScanMustStopByUserRequest,
                                               HTTPRequestException,
@@ -54,12 +54,14 @@ from w3af.core.controllers.exceptions import (ScanMustStopByUserRequest,
 class TestXUrllib(unittest.TestCase):
 
     MOTH_MESSAGE = '<title>moth: vulnerable web application</title>'
+    MOCK_URL = 'http://www.w3af.org/'
 
     def setUp(self):
         self.uri_opener = ExtendedUrllib()
     
     def tearDown(self):
         self.uri_opener.end()
+        httpretty.reset()
         
     def test_basic(self):
         url = URL(get_moth_http())
@@ -67,6 +69,15 @@ class TestXUrllib(unittest.TestCase):
         
         self.assertIn(self.MOTH_MESSAGE, http_response.body)
         
+        self.assertGreaterEqual(http_response.id, 1)
+        self.assertNotEqual(http_response.id, None)
+
+    def test_basic_ssl(self):
+        url = URL(get_moth_https())
+        http_response = self.uri_opener.GET(url, cache=False)
+
+        self.assertIn(self.MOTH_MESSAGE, http_response.body)
+
         self.assertGreaterEqual(http_response.id, 1)
         self.assertNotEqual(http_response.id, None)
 
@@ -87,6 +98,53 @@ class TestXUrllib(unittest.TestCase):
         url = URL(get_moth_http('/audit/xss/simple_xss.py?text=root:x:0'))
         http_response = self.uri_opener.GET(url, cache=False)
         self.assertIn('root:x:0', http_response.body)
+
+    @httpretty.activate
+    def test_GET_with_post_data(self):
+        httpretty.register_uri(httpretty.GET, self.MOCK_URL,
+                               body=self.MOTH_MESSAGE, status=200)
+
+        mock_url = URL(self.MOCK_URL)
+        data = 'abc=123&def=456'
+        response = self.uri_opener.GET(mock_url, data=data)
+
+        # Check the response
+        self.assertEqual(response.get_code(), 200)
+        self.assertEqual(response.get_body(), self.MOTH_MESSAGE)
+
+        # And use httpretty to check the request
+        self.assertEqual(httpretty.last_request().method, 'GET')
+
+        request_headers = httpretty.last_request().headers
+        self.assertIn('content-length', request_headers)
+        self.assertEqual(str(len(data)), request_headers['content-length'])
+
+        self.assertEqual(httpretty.last_request().body, data)
+        self.assertEqual(httpretty.last_request().path, '/')
+
+    @httpretty.activate
+    def test_GET_with_post_data_and_qs(self):
+        httpretty.register_uri(httpretty.GET, self.MOCK_URL,
+                               body=self.MOTH_MESSAGE, status=200)
+
+        qs = '?qs=1'
+        mock_url = URL(self.MOCK_URL + qs)
+        data = 'abc=123&def=456'
+        response = self.uri_opener.GET(mock_url, data=data)
+
+        # Check the response
+        self.assertEqual(response.get_code(), 200)
+        self.assertEqual(response.get_body(), self.MOTH_MESSAGE)
+
+        # And use httpretty to check the request
+        self.assertEqual(httpretty.last_request().method, 'GET')
+
+        request_headers = httpretty.last_request().headers
+        self.assertIn('content-length', request_headers)
+        self.assertEqual(str(len(data)), request_headers['content-length'])
+
+        self.assertEqual(httpretty.last_request().body, data)
+        self.assertEqual(httpretty.last_request().path, '/' + qs)
 
     def test_post(self):
         url = URL(get_moth_http('/audit/xss/simple_xss_form.py'))
@@ -217,6 +275,17 @@ class TestXUrllib(unittest.TestCase):
         resp = self.uri_opener.GET(url)
         self.assertEqual(resp.get_body(), Ok200Handler.body)
 
+    @attr('internet')
+    @attr('ci_fails')
+    def test_ssl_sni(self):
+        """
+        Test is our HTTP client supports SSL SNI
+        """
+        url = URL('https://sni.velox.ch/')
+
+        resp = self.uri_opener.GET(url)
+        self.assertIn('<strong>Great!', resp.get_body())
+
     def test_ssl_fail_when_requesting_http(self):
         http_daemon = UpperDaemon(Ok200Handler)
         http_daemon.start()
@@ -332,33 +401,20 @@ class TestXUrllib(unittest.TestCase):
         http_response = self.uri_opener.GET(url, cache=False, headers=headers)
         self.assertIn(header_content, http_response.body)
 
-    @attr('internet')
-    def test_bad_file_descriptor_8125(self):
-        """
-        8125 is basically an issue with the way HTTP SSL connections handle the
-        Connection: Close header. If at any point the URL in this test starts
-        to fail, I just need to find another which sends that header.
-
-        Also, see the test_bad_file_descriptor_8125_mock test.
-
-        :see: https://github.com/andresriancho/w3af/issues/8125
-        """
-        self.uri_opener.settings.set_max_http_retries(0)
-        url = URL('https://www.factoriadigital.com/hosting/wordpress')
-        http_response = self.uri_opener.GET(url, cache=False)
-        self.assertIn('Soporte', http_response.body)
-
     def test_bad_file_descriptor_8125_local(self):
         """
+        8125 is basically an issue with the way HTTP SSL connections handle the
+        Connection: Close header.
+
         :see: https://github.com/andresriancho/w3af/issues/8125
         """
-        port = get_unused_port()
-        raw_http_response = "HTTP/1.1 200 Ok\r\n"\
-                            "Connection: close\r\n"\
-                            "Content-Type: text/html\r\n"\
-                            "Content-Length: 3\r\n\r\nabc"
+        raw_http_response = ('HTTP/1.1 200 Ok\r\n'
+                             'Connection: close\r\n'
+                             'Content-Type: text/html\r\n'
+                             'Content-Length: 3\r\n\r\nabc')
         certfile = os.path.join(ROOT_PATH, 'plugins', 'tests', 'audit',
                                 'certs', 'invalid_cert.pem')
+        port = get_unused_port()
 
         s = SSLServer('localhost', port, certfile,
                       http_response=raw_http_response)
@@ -372,8 +428,13 @@ class TestXUrllib(unittest.TestCase):
         self.assertEqual(body, http_response.body)
         s.stop()
 
+        # This error is expected, it's generated when the xurllib negotiates
+        # the different SSL protocols with the server
+        self.assertEqual(set([e.strerror for e in s.errors]),
+                         {'Bad file descriptor'})
+
     def test_rate_limit_high(self):
-        self.rate_limit_generic(500, 0.01, 0.4)
+        self.rate_limit_generic(500, 0.009, 0.4)
 
     def test_rate_limit_low(self):
         self.rate_limit_generic(1, 1, 2.2)

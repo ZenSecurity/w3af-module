@@ -49,6 +49,8 @@ from w3af.core.data.url.handlers.errors import ErrorHandler
 from w3af.core.data.options.option_types import (POSITIVE_INT, INT, STRING,
                                                  LIST, BOOL)
 
+USER_AGENT_HEADER = 'User-Agent'
+
 
 class OpenerSettings(Configurable):
     """
@@ -82,7 +84,7 @@ class OpenerSettings(Configurable):
         
         #   which basically is the UA for IE8 running in Windows 7, plus our
         #   website :)    
-        self.header_list = [('User-Agent', USER_AGENT)]
+        self.header_list = [(USER_AGENT_HEADER, USER_AGENT)]
                 
         # By default, don't mangle any request/responses
         self._mangle_plugins = []
@@ -161,7 +163,7 @@ class OpenerSettings(Configurable):
         """
         for h, v in header_list:
             self.header_list.append((h, v))
-            om.out.debug('Added the following header: %s:%s' % (h, v))
+            om.out.debug('Added the following header: "%s: %s"' % (h, v))
 
     def close_connections(self):
         handlers = (self._ka_http, self._ka_https)
@@ -184,12 +186,12 @@ class OpenerSettings(Configurable):
         except cookielib.LoadError, cle:
             # pylint: disable=E1101
             if cle.message.startswith('invalid Netscape format cookies file'):
-                docs_url = 'http://docs.w3af.org/en/latest/' \
-                           'authentication.html#setting-http-cookie'
+                docs_url = ('http://docs.w3af.org/en/latest/'
+                            'authentication.html#setting-http-cookie')
 
-                msg = 'The supplied cookiejar file is not in Netscape format'\
-                      ' please review our documentation at %s to better' \
-                      ' understand the required format.'
+                msg = ('The supplied cookiejar file is not in Netscape format'
+                       ' please review our documentation at %s to better'
+                       ' understand the required format.')
 
                 raise BaseFrameworkException(msg % docs_url)
             else:
@@ -204,10 +206,10 @@ class OpenerSettings(Configurable):
             cfg.save('cookie_jar_file', cookiejar_file)
             
             if not len(cj):
-                msg = 'Did not load any cookies from the cookie jar file.'\
-                      ' This usually happens when there are no cookies in'\
-                      ' the file, the cookies have expired or the file is not'\
-                      ' in the expected format.'
+                msg = ('Did not load any cookies from the cookie jar file.'
+                       ' This usually happens when there are no cookies in'
+                       ' the file, the cookies have expired or the file is not'
+                       ' in the expected format.')
                 raise BaseFrameworkException(msg)
             else:
                 om.out.debug('Loaded the following cookies:')
@@ -246,10 +248,9 @@ class OpenerSettings(Configurable):
         return cfg.get('configured_timeout')
 
     def set_user_agent(self, user_agent):
-        om.out.debug('Called set_user_agent')
-        self.header_list = [i for i in self.header_list if i[0]
-                            != 'user_agent']
-        self.header_list.append(('User-Agent', user_agent))
+        self.header_list = [i for i in self.header_list if i[0].lower()
+                            != USER_AGENT_HEADER]
+        self.header_list.append((USER_AGENT_HEADER, user_agent))
         cfg.save('user_agent', user_agent)
         
     def set_rand_user_agent(self, rand_user_agent):
@@ -301,23 +302,25 @@ class OpenerSettings(Configurable):
         # Makes no sense, because urllib2.ProxyHandler doesn't support HTTPS
         # proxies with CONNECT. The proxying with CONNECT is implemented in
         # keep-alive handler. (nasty!)
-        proxy_map = {'http': "http://" + ip + ":" + str(port)}
+        proxy_url = 'http://%s:%s' % (ip, port)
+        proxy_map = {'http': proxy_url}
         self._proxy_handler = urllib2.ProxyHandler(proxy_map)
 
     def get_proxy(self):
         return cfg.get('proxy_address') + ':' + str(cfg.get('proxy_port'))
 
     def set_basic_auth(self, url, username, password):
-        om.out.debug('Called SetBasicAuth')
+        om.out.debug('Called set_basic_auth')
 
         if not url:
             if url is None:
                 raise BaseFrameworkException('The entered basic_auth_domain'
                                              ' URL is invalid!')
             elif username or password:
-                msg = ('To properly configure the basic authentication '
-                       'settings, you should also set the auth domain. If you '
-                       'are unsure, you can set it to the target domain name.')
+                msg = ('To properly configure the basic authentication'
+                       ' settings, you should also set the auth domain. If you '
+                       ' are unsure, you can set it to the target domain name'
+                       ' (eg. www.target.com)')
                 raise BaseFrameworkException(msg)
         else:
             if not hasattr(self, '_password_mgr'):
@@ -483,9 +486,9 @@ class OpenerSettings(Configurable):
         ol.add(o)
         
         d = 'Basic authentication domain'
-        h = 'This configures on which requests to send the authentication'\
-            ' settings configured in basic_auth_passwd and basic_auth_user.'\
-            ' If you are unsure, just set it to the target domain name.'
+        h = ('This configures on which requests to send the authentication'
+             ' settings configured in basic_auth_passwd and basic_auth_user.'
+             ' If you are unsure, just set it to the target domain name.')
         o = opt_factory('basic_auth_domain', cfg.get('basic_auth_domain'), d,
                         STRING, help=h, tabid='Basic HTTP Authentication')
         ol.add(o)

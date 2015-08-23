@@ -19,8 +19,8 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-import Queue
 import sys
+import Queue
 
 from multiprocessing import TimeoutError
 
@@ -54,7 +54,7 @@ class CoreStrategy(object):
 
     It has been w3af's main algorithm for a while, and what we want to do now
     is to decouple it from the core in order to make experiments and implement
-    new algorithms that are more performant.
+    new / faster algorithms.
 
     Use this strategy as a base for your experiments!
     """

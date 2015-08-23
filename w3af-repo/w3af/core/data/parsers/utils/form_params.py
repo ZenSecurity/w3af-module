@@ -87,27 +87,69 @@ class FormParameters(OrderedDict):
                             INPUT_TYPE_RADIO,
                             INPUT_TYPE_SELECT}
 
-    def __init__(self, init_vals=(), meta=None, encoding=DEFAULT_ENCODING):
+    def __init__(self, init_vals=(), meta=None, encoding=DEFAULT_ENCODING,
+                 method='GET', action=None,
+                 form_encoding=DEFAULT_FORM_ENCODING):
+        # pylint: disable=E1002
         super(FormParameters, self).__init__(init_vals)
+        # pylint: enable=E1002
 
         # Form parameter meta-data
         self.meta = meta if meta is not None else {}
 
-        # Internal variables
-        # Form method defaults to GET if not found
-        self._method = 'GET'
-        self._action = None
+        # Defaults
         self._autocomplete = None
+        self._action = None
+        self._method = 'GET'
 
         # Two completely different types of encoding, first the enctype for the
         # form: multipart/urlencoded, then the charset encoding (UTF-8, etc.)
         self._form_encoding = DEFAULT_FORM_ENCODING
-        self._encoding = encoding
+        self._encoding = DEFAULT_ENCODING
+
+        # Call the setters (in a specific order!) so they can mangle the form
+        # params if required
+        #
+        # https://github.com/andresriancho/w3af/issues/11998
+        # https://github.com/andresriancho/w3af/issues/11997
+        self.set_encoding(encoding)
+        self.set_method(method)
+        self.set_action(action)
+        self.set_form_encoding(form_encoding)
 
     def get_form_encoding(self):
         return self._form_encoding
 
     def set_form_encoding(self, form_encoding):
+        """
+        This method is a little bit more complex than I initially expected,
+        since it needs to handle cases where the HTML form was created with
+        a set of attributes that don't make sense together. For example take
+        a look at this:
+
+        <form action="" method="get" enctype="multipart/form-data">
+            <input type="text" name="test" value="тест">
+            <input type="submit" name="submit">
+        </form>
+
+        Chrome and Firefox will send this as a GET request with a query string
+        containing both the text and submit params in url-encoded form. This
+        means that they override the "user defined" multipart.
+
+        Situations like this triggered bugs:
+            https://github.com/andresriancho/w3af/issues/11997
+            https://github.com/andresriancho/w3af/issues/11998
+
+        So I had to change the method to be a little bit smarter and override
+        the form encoding in specific cases.
+
+        :param form_encoding: The user-defined string in the HTML which
+                              specifies the form encoding to use.
+        :return:
+        """
+        if 'multipart/' in form_encoding.lower() and self.get_method() == 'GET':
+            form_encoding = DEFAULT_FORM_ENCODING
+
         self._form_encoding = form_encoding
 
     def get_encoding(self):
@@ -148,7 +190,25 @@ class FormParameters(OrderedDict):
         return self._method
 
     def set_method(self, method):
+        """
+        Form method defaults to GET if not found
+        :param method: HTTP method
+        :return: None
+        """
         self._method = method.upper()
+
+    def has_post_data(self):
+        """
+        When w3af translates the form params into a request at
+        FuzzableRequest.from_form() it uses this method to determine if the
+        form parameters are send in the query string or in the post-data
+
+        :return: True if we should send the params in the post-data
+        """
+        if self.get_method().upper() in ('POST', 'PUT', 'PATCH'):
+            return True
+
+        return False
 
     def get_file_name(self, pname, default=None):
         """
@@ -208,8 +268,10 @@ class FormParameters(OrderedDict):
         form_fields = self.meta.setdefault(form_field.name, [])
         form_fields.append(form_field)
 
+        # pylint: disable=E1101
         form_values = self.setdefault(form_field.name, [])
         form_values.append(form_field.value or '')
+        # pylint: enable=E1101
 
     def add_field_by_attr_items(self, attr_items):
         """
@@ -255,7 +317,7 @@ class FormParameters(OrderedDict):
             return False, None
 
         # shortcut
-        snf = same_name_fields = self.meta.get(input_name, [])
+        snf = self.meta.get(input_name, [])
 
         # Find the attr type and value, setting the default type to text (if
         # missing in the tag) and the default value to an empty string (if
@@ -295,7 +357,10 @@ class FormParameters(OrderedDict):
                 form_field = CheckboxFormField(input_name, [input_value])
 
         elif input_type == INPUT_TYPE_FILE:
-            form_field = FileFormField(input_name)
+            file_name = get_value_by_key(attributes, 'filename')
+            form_field = FileFormField(input_name,
+                                       value=input_value,
+                                       file_name=file_name)
 
         else:
             form_field = GenericFormField(input_type, input_name, input_value,

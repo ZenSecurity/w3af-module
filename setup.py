@@ -1,28 +1,25 @@
 #!/usr/bin/env python
-import sys
-import os
 
-SETUPTOOLS_VERSION = '11.3.1'
-PROFILES_DIR = 'w3af-repo/profiles/'
-
-try:
-    from setuptools.version import __version__
-    assert __version__ == SETUPTOOLS_VERSION
-except (ImportError, AssertionError) as e:
-    print >> sys.stderr, (
-        "The required version of setuptools (==%s) is not available,"
-        " %s was found instead.\n"
-        "Please install a more recent version first, using 'pip install "
-        "--upgrade setuptools==%s'.") % (SETUPTOOLS_VERSION,
-                                         __version__,
-                                         SETUPTOOLS_VERSION)
-    sys.exit(2)
-
-from setuptools import setup, find_packages
-
+from distutils.core import setup
 from mod_utils.get_version import get_version
 from mod_utils.pip import get_pip_git_requirements, get_pip_requirements
+from os import listdir
+from os.path import normpath, join
+from pip import main as pip_main
+from setuptools import find_packages
 
+
+def pre_install():
+    # need to install custom library (SSLyze) for wg_ssl audit plugin support
+    try:
+        pip_main(['install', 'git+https://github.com/ZenSecurity/sslyze.git'])
+    except Exception as exception:
+        print('{} - {}'.format(exception.__class__.__name__, exception))
+
+pre_install()
+
+
+PROFILES_DIR = 'w3af-repo/profiles'
 
 setup(
     name='w3af',
@@ -34,34 +31,27 @@ setup(
     description='w3af is an open source web application security scanner.',
     long_description=file('README.rst').read(),
 
-    author='Andres Riancho',
-    author_email='andres.riancho@gmail.com',
-    url='https://github.com/andresriancho/w3af/',
+    author='em',
+    author_email='mailto@zensecurity.su',
+    url='https://github.com/ZenSecurity/w3af-module',
 
     packages=find_packages(where='.', exclude=['tests*', 'mod_utils*']),
-
-    # include everything in source control which lives inside one of the
-    # packages identified by find_packages, depends on setuptools_git==1.0
+    # include everything in source control which lives inside one of the packages identified by find_packages
     include_package_data=True,
 
     # include the data files, which don't live inside the directory
+    data_files=[('profiles', [normpath(join(PROFILES_DIR, profile_file)) for profile_file in listdir(PROFILES_DIR)])],
 
-    data_files=[('profiles',
-                [PROFILES_DIR + '/' + f for f in os.listdir(PROFILES_DIR)])],
-
-    # This allows w3af plugins to read the data_files which we deploy with
-    # data_files.
+    # This allows w3af plugins to read the data files which we deploy with data_files.
     zip_safe=False,
 
     # Run the module tests using nose
     test_suite='nose.collector',
 
     # Require at least the easiest PIP requirements from w3af
-    setup_requires=['setuptools==%s' % SETUPTOOLS_VERSION,
-                    "setuptools_git==1.0"],
     install_requires=get_pip_requirements(),
     dependency_links=get_pip_git_requirements(),
-
+    
     # Install these scripts
     scripts=['w3af-repo/w3af_console',
              'w3af-repo/w3af_gui',

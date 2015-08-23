@@ -43,6 +43,11 @@ from w3af.core.ui.gui.export_request import export_request
 from w3af.core.ui.gui import helpers
 
 
+SIGSEV_ERROR = ('We caught a segmentation fault! Please report this bug'
+                ' following the instructions at'
+                ' http://docs.w3af.org/en/latest/report-a-bug.html')
+
+
 def sigsegv_handler(signum, frame):
     #
     # Might be a good idea to use https://pypi.python.org/pypi/faulthandler/
@@ -52,10 +57,12 @@ def sigsegv_handler(signum, frame):
     #
     # https://github.com/andresriancho/w3af/issues/1850
     # https://github.com/andresriancho/w3af/issues/1899
+    # https://github.com/andresriancho/w3af/issues/10931
     #
-    print('We caught a segmentation fault! Please report this bug to the'
-          ' w3af-develop mailing list, providing details on how to reproduce'
-          ' the issue in our environment.')
+    # Since python is "broken" inside this signal handler, the error string is
+    # pre-allocated in memory
+    #
+    print(SIGSEV_ERROR)
 
 signal.signal(signal.SIGSEGV, sigsegv_handler)
 
@@ -87,7 +94,7 @@ class ReqResViewer(gtk.VBox):
         if layout == 'Tabbed':
             self._initTabbedLayout()
         else:
-            self._initSplittedLayout()
+            self._initSplitLayout()
         # Init req toolbox
         self._initToolBox(withManual, withFuzzy, withCompare, withAudit)
         self.show()
@@ -98,16 +105,18 @@ class ReqResViewer(gtk.VBox):
         nb.show()
         self.nb = nb
         self.pack_start(nb, True, True)
-        nb.append_page(self.request, gtk.Label(_("Request")))
-        nb.append_page(self.response, gtk.Label(_("Response")))
+        nb.append_page(self.request, gtk.Label(_('Request')))
+        nb.append_page(self.response, gtk.Label(_('Response')))
         # Info
         self.info = HttpEditor(self.w3af)
         self.info.set_editable(False)
         #self.info.show()
         nb.append_page(self.info, gtk.Label(_("Info")))
 
-    def _initSplittedLayout(self):
-        """Init Splitted layout. It's more convenient for intercept."""
+    def _initSplitLayout(self):
+        """
+        Init Split layout. It's more convenient for intercept
+        """
         self._vpaned = RememberingVPaned(self.w3af, 'trap_view')
         self._vpaned.show()
         self.pack_start(self._vpaned, True, True)
@@ -396,7 +405,7 @@ class RequestPart(RequestResponsePart):
     def __init__(self, parent, w3af, enableWidget=[], editable=False,
                  widgname='default'):
         RequestResponsePart.__init__(self, parent, w3af, enableWidget, editable,
-                                     widgname=widgname + "request")
+                                     widgname=widgname + 'request')
 
         self.raw_view = HttpRawView(w3af, self, editable)
         self.add_view(self.raw_view)

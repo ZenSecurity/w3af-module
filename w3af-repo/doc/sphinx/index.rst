@@ -64,7 +64,7 @@ Contents
    scripts
    authentication
    common-use-cases
-   complex-web-apps
+   advanced-use-cases
    
    exploitation
    advanced-exploitation
@@ -78,6 +78,13 @@ GUI documentation
    :maxdepth: 3
 
    gui/index
+
+REST API documentation
+----------------------
+.. toctree::
+   :maxdepth: 3
+
+   api/index
 
 Advanced tips and tricks
 ------------------------

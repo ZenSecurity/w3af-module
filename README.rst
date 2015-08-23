@@ -14,8 +14,7 @@ To install w3af as a module you'll have to follow these steps:
 
 ::
 
-    git clone git@github.com:andresriancho/w3af-module.git
-    # optional: git checkout develop
+    git clone http://github.com/ZenSecurity/w3af-module
     sudo python setup.py install
 
 After some seconds you should be able to move to any directory and from a
@@ -23,9 +22,9 @@ python interpreter run ``import w3af``.
 
 ::
 
-    andres@box:~$ python
-    Python 2.7.3 (default, Aug  1 2012, 05:14:39) 
-    [GCC 4.6.3] on linux2
+    zensec@host:~$ python
+    Python 2.7.10 (default, May 25 2015, 13:06:17)
+    [GCC 4.2.1 Compatible Apple LLVM 6.0 (clang-600.0.56)] on darwin
     Type "help", "copyright", "credits" or "license" for more information.
     >>> import w3af
     >>>

@@ -532,7 +532,8 @@ class ExtendedUrllib(object):
                                   grep=False)
 
     def send_mutant(self, mutant, callback=None, grep=True, cache=True,
-                    cookies=True, error_handling=True, timeout=None):
+                    cookies=True, error_handling=True, timeout=None,
+                    follow_redirects=False, use_basic_auth=True):
         """
         Sends a mutant to the remote web server.
 
@@ -549,12 +550,13 @@ class ExtendedUrllib(object):
         #
         uri = mutant.get_uri()
         data = mutant.get_data()
+        headers = mutant.get_all_headers()
 
         # Also add the cookie header; this is needed by the CookieMutant
-        headers = mutant.get_all_headers()
-        cookie = mutant.get_cookie()
-        if cookie:
-            headers['Cookie'] = str(cookie)
+        if cookies:
+            mutant_cookie = mutant.get_cookie()
+            if mutant_cookie:
+                headers['Cookie'] = str(mutant_cookie)
 
         args = (uri,)
         kwargs = {
@@ -564,7 +566,9 @@ class ExtendedUrllib(object):
             'cache': cache,
             'cookies': cookies,
             'error_handling': error_handling,
-            'timeout': timeout
+            'timeout': timeout,
+            'follow_redirects': follow_redirects,
+            'use_basic_auth': use_basic_auth,
         }
         method = mutant.get_method()
 
@@ -581,15 +585,15 @@ class ExtendedUrllib(object):
 
     def GET(self, uri, data=None, headers=Headers(), cache=False,
             grep=True, cookies=True, respect_size_limit=True,
-            error_handling=True, timeout=None):
+            error_handling=True, timeout=None, follow_redirects=False,
+            use_basic_auth=True, use_proxy=True):
         """
         HTTP GET a URI using a proxy, user agent, and other settings
         that where previously set in opener_settings.py .
 
         :param uri: This is the URI to GET, with the query string included.
-        :param data: Only used if the uri parameter is really a URL. The data
-                     will be converted into a string and set as the URL object
-                     query string before sending.
+        :param data: Object to send as post-data, usually a string or a data
+                     container
         :param headers: Any special headers that will be sent with this request
         :param cache: Should the library search the local cache for a response
                       before sending it to the wire?
@@ -599,6 +603,7 @@ class ExtendedUrllib(object):
                         the defined timeout as the socket timeout value for this
                         request. The timeout is specified in seconds
         :param cookies: Send stored cookies in request (or not)
+        :param follow_redirects: Follow 30x redirects (or not)
 
         :return: An HTTPResponse object.
         """
@@ -613,24 +618,24 @@ class ExtendedUrllib(object):
         # Validate what I'm sending, init the library (if needed)
         self.setup()
 
-        if data:
-            uri = uri.copy()
-            uri.querystring = data
-
-        new_connection = True if timeout is not None else False
         host = uri.get_domain()
+        new_connection = True if timeout is not None else False
         timeout = self.get_timeout(host) if timeout is None else timeout
-        req = HTTPRequest(uri, cookies=cookies, cache=cache,
+
+        req = HTTPRequest(uri, cookies=cookies, cache=cache, data=data,
                           error_handling=error_handling, method='GET',
                           retries=self.settings.get_max_retrys(),
-                          timeout=timeout, new_connection=new_connection)
+                          timeout=timeout, new_connection=new_connection,
+                          follow_redirects=follow_redirects,
+                          use_basic_auth=use_basic_auth, use_proxy=use_proxy)
         req = self.add_headers(req, headers)
 
         with raise_size_limit(respect_size_limit):
             return self.send(req, grep=grep)
 
     def POST(self, uri, data='', headers=Headers(), grep=True, cache=False,
-             cookies=True, error_handling=True, timeout=None):
+             cookies=True, error_handling=True, timeout=None,
+             follow_redirects=None, use_basic_auth=True, use_proxy=True):
         """
         POST's data to a uri using a proxy, user agents, and other settings
         that where set previously.
@@ -651,6 +656,9 @@ class ExtendedUrllib(object):
         #    Validate what I'm sending, init the library (if needed)
         self.setup()
 
+        # follow_redirects is ignored because according to the RFC browsers
+        # should not follow 30x redirects on POST
+
         #
         #    Create and send the request
         #
@@ -659,14 +667,15 @@ class ExtendedUrllib(object):
         #    requests.
         #
         data = str(data)
-
-        new_connection = True if timeout is not None else False
         host = uri.get_domain()
+        new_connection = True if timeout is not None else False
         timeout = self.get_timeout(host) if timeout is None else timeout
+
         req = HTTPRequest(uri, data=data, cookies=cookies, cache=False,
                           error_handling=error_handling, method='POST',
                           retries=self.settings.get_max_retrys(),
-                          timeout=timeout, new_connection=new_connection)
+                          timeout=timeout, new_connection=new_connection,
+                          use_basic_auth=use_basic_auth, use_proxy=use_proxy)
         req = self.add_headers(req, headers)
 
         return self.send(req, grep=grep)
@@ -720,7 +729,8 @@ class ExtendedUrllib(object):
         """
         def any_method(uri_opener, method, uri, data=None, headers=Headers(),
                        cache=False, grep=True, cookies=True,
-                       error_handling=True, timeout=None):
+                       error_handling=True, timeout=None, use_basic_auth=True,
+                       use_proxy=True, follow_redirects=False):
             """
             :return: An HTTPResponse object that's the result of sending
                      the request with a method different from GET or POST.
@@ -745,7 +755,10 @@ class ExtendedUrllib(object):
                               error_handling=error_handling,
                               retries=max_retries,
                               timeout=timeout,
-                              new_connection=new_connection)
+                              new_connection=new_connection,
+                              use_basic_auth=use_basic_auth,
+                              follow_redirects=follow_redirects,
+                              use_proxy=True)
             req = uri_opener.add_headers(req, headers or {})
             return uri_opener.send(req, grep=grep)
 
@@ -836,8 +849,8 @@ class ExtendedUrllib(object):
         
     def _generic_send_error_handler(self, req, exception, grep, original_url):
         if not req.error_handling:
-            msg = u'Raising HTTP error "%s" "%s". Reason: "%s". Error' \
-                  u' handling was disabled for this request.'
+            msg = (u'Raising HTTP error "%s" "%s". Reason: "%s". Error'
+                   u' handling was disabled for this request.')
             om.out.debug(msg % (req.get_method(), original_url, exception))
             error_str = get_exception_reason(exception) or str(exception)
             raise HTTPRequestException(error_str, request=req)
@@ -1136,8 +1149,8 @@ class ExtendedUrllib(object):
             try:
                 request = eplugin.modify_request(request)
             except BaseFrameworkException, e:
-                msg = 'Evasion plugin "%s" failed to modify the request.'\
-                      ' Exception: "%s".'
+                msg = ('Evasion plugin "%s" failed to modify the request.'
+                       ' Exception: "%s".')
                 om.out.error(msg % (eplugin.get_name(), e))
 
         return request
@@ -1163,7 +1176,7 @@ class ExtendedUrllib(object):
 @contextmanager
 def raise_size_limit(respect_size_limit):
     """
-    TODO: This is an UGLY hack that allows me to download oversized files,
+    TODO: This is an UGLY hack that allows me to download over-sized files,
           but it shouldn't be implemented like this! It should look more
           like the cookies attribute/parameter which uses the cookie_handler.
     """

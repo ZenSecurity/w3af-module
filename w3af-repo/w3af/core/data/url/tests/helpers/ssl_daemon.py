@@ -66,6 +66,9 @@ class SSLServer(threading.Thread):
     def __init__(self, listen, port, certfile, proto=ssl.PROTOCOL_TLSv1,
                  http_response=HTTP_RESPONSE):
         threading.Thread.__init__(self)
+        self.daemon = True
+        self.name = 'SSLServer'
+        
         self.listen = listen
         self.port = port
         self.cert = certfile
@@ -75,6 +78,8 @@ class SSLServer(threading.Thread):
         self.sock = socket.socket()
         self.sock.bind((listen, port))
         self.sock.listen(5)
+
+        self.errors = []
 
     def accept(self):
         self.sock = ssl.wrap_socket(self.sock,
@@ -94,14 +99,15 @@ class SSLServer(threading.Thread):
             # SSL protocol v2 and that will "break" the handshake
             newsocket.close()
 
-        #print 'Connection from ', fromaddr
+        #print 'Connection from %s port %s, sending HTTP response' % fromaddr
         try:
             newsocket.send(self.http_response)
-        except:
-            pass
-            #print 'Connection closed by remote end.'
+        except Exception, e:
+            self.errors.append(e)
+            #print 'Failed to send HTTP response to client: "%s"' % e
         finally:
             newsocket.close()
+            #print 'Closed connection from %s port %s' % fromaddr
 
     def run(self):
         self.should_stop = False

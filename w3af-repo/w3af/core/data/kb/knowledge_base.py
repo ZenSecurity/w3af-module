@@ -407,8 +407,8 @@ class DBKnowledgeBase(BasicKnowledgeBase):
         This method appends the location_b value to a dict.
         """
         if not ignore_type and not isinstance(value, (Info, Shell, InfoSet)):
-            msg = 'You MUST use raw_write/raw_read to store non-info objects'\
-                  ' to the KnowledgeBase.'
+            msg = ('You MUST use raw_write/raw_read to store non-info objects'
+                   ' to the KnowledgeBase.')
             raise TypeError(msg)
 
         location_a = self._get_real_name(location_a)
@@ -485,8 +485,8 @@ class DBKnowledgeBase(BasicKnowledgeBase):
         update_not_info = not isinstance(update_info, (Info, InfoSet, Shell))
 
         if old_not_info or update_not_info:
-            msg = 'You MUST use raw_write/raw_read to store non-info objects'\
-                  ' to the KnowledgeBase.'
+            msg = ('You MUST use raw_write/raw_read to store non-info objects'
+                   ' to the KnowledgeBase.')
             raise TypeError(msg)
 
         old_uniq_id = old_info.get_uniq_id()
@@ -502,9 +502,9 @@ class DBKnowledgeBase(BasicKnowledgeBase):
         if result.rowcount:
             self._notify_observers(self.UPDATE, old_info, update_info)
         else:
-            ex = 'Failed to update() %s instance because' \
-                 ' the original unique_id (%s) does not exist in the DB,' \
-                 ' or the new unique_id (%s) is invalid.'
+            ex = ('Failed to update() %s instance because'
+                  ' the original unique_id (%s) does not exist in the DB,'
+                  ' or the new unique_id (%s) is invalid.')
             raise DBException(ex % (old_info.__class__.__name__,
                                     old_uniq_id,
                                     new_uniq_id))
@@ -666,8 +666,8 @@ class DBKnowledgeBase(BasicKnowledgeBase):
         :return: True if the FuzzableRequest was previously unknown
         """
         if not isinstance(fuzzable_request, FuzzableRequest):
-            msg = 'add_fuzzable_request requires a FuzzableRequest as '\
-                  'parameter, got "%s" instead.'
+            msg = ('add_fuzzable_request requires a FuzzableRequest as'
+                   ' parameter, got "%s" instead.')
             raise TypeError(msg % type(fuzzable_request))
 
         self.add_url(fuzzable_request.get_url())

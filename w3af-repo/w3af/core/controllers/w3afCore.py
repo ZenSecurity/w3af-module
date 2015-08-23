@@ -31,19 +31,18 @@ import errno
 
 import w3af.core.data.parsers.parser_cache as parser_cache
 import w3af.core.controllers.output_manager as om
-import w3af.core.data.kb.config as cf
 
-from w3af.core.controllers.core_helpers.status import w3af_core_status
-from w3af.core.controllers.core_helpers.profiles import w3af_core_profiles
+from w3af.core.controllers.threads.threadpool import Pool
+from w3af.core.controllers.misc.homeDir import get_home_dir
+from w3af.core.controllers.core_helpers.profiles import CoreProfiles
 from w3af.core.controllers.core_helpers.plugins import w3af_core_plugins
-from w3af.core.controllers.core_helpers.target import w3af_core_target
+from w3af.core.controllers.core_helpers.target import CoreTarget
 from w3af.core.controllers.core_helpers.strategy import CoreStrategy
 from w3af.core.controllers.core_helpers.fingerprint_404 import fingerprint_404_singleton
 from w3af.core.controllers.core_helpers.exception_handler import ExceptionHandler
 from w3af.core.controllers.core_helpers.strategy_observers.disk_space_observer import DiskSpaceObserver
-from w3af.core.controllers.threads.threadpool import Pool
-from w3af.core.controllers.misc.homeDir import get_home_dir
-
+from w3af.core.controllers.core_helpers.status import (w3af_core_status,
+                                                       STOPPED, RUNNING, PAUSED)
 from w3af.core.controllers.output_manager import (fresh_output_manager_inst,
                                                   log_sink_factory)
 from w3af.core.controllers.profiling import start_profiling, stop_profiling
@@ -114,10 +113,10 @@ class w3afCore(object):
         # they basically handle every aspect of the w3af framework. I create
         # these here because they are used by the UIs even before starting a
         # scan.
-        self.profiles = w3af_core_profiles(self)
+        self.profiles = CoreProfiles(self)
         self.plugins = w3af_core_plugins(self)
         self.status = w3af_core_status(self)
-        self.target = w3af_core_target()
+        self.target = CoreTarget()
         self.strategy = CoreStrategy(self)
         
         # FIXME: In the future, when the output_manager is not an awful
@@ -259,6 +258,7 @@ class w3afCore(object):
             error = ('The following error was detected and could not be'
                      ' resolved:\n%s\n')
             om.out.error(error % wmse)
+            raise
 
         except Exception, e:
             msg = 'Unhandled exception "%s", traceback:\n%s'
@@ -267,7 +267,7 @@ class w3afCore(object):
 
         finally:
             time_spent = self.status.get_scan_time()
-            
+
             om.out.information('Scan finished in %s' % time_spent)
             om.out.information('Stopping the core...')
 
@@ -297,7 +297,10 @@ class w3afCore(object):
                                      worker_names='WorkerThread')
 
         return self._worker_pool
-        
+
+    def can_cleanup(self):
+        return self.status.get_simplified_status() == STOPPED
+
     def cleanup(self):
         """
         The GTK user interface calls this when a scan has been stopped
@@ -339,6 +342,9 @@ class w3afCore(object):
         # Not calling:
         # self.plugins.zero_enabled_plugins()
         # because I want to keep the selected plugins and configurations
+
+    def can_stop(self):
+        return self.status.get_simplified_status() in (RUNNING, PAUSED)
 
     def stop(self):
         """
@@ -423,11 +429,11 @@ class w3afCore(object):
         (human) user.
         """
         if not self.plugins.initialized:
-            msg = 'You must call the plugins.init_plugins() method before'\
-                  ' calling start().'
+            msg = ('You must call the plugins.init_plugins() method before'
+                   ' calling start().')
             raise BaseFrameworkException(msg)
 
-        if not cf.cf.get('targets'):
+        if not self.target.has_valid_configuration():
             raise BaseFrameworkException('No target URI configured.')
 
         if not len(self.plugins.get_enabled_plugins('audit')) \
@@ -453,6 +459,9 @@ class w3afCore(object):
             # Close the output manager, this needs to be done BEFORE the end()
             # in uri_opener because some plugins (namely xml_output) use the
             # data from the history in their end() method.
+            #
+            # Also needs to be done before target.clear() because some plugins
+            # need to access the target data stored in cf
             om.manager.end_output_plugins()
         except Exception:
             raise

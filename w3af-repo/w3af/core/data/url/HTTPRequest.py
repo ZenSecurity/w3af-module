@@ -36,7 +36,9 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
                  origin_req_host=None, unverifiable=False,
                  cookies=True, cache=False, method=None,
                  error_handling=True, retries=MAX_HTTP_RETRIES,
-                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT, new_connection=False):
+                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                 new_connection=False, follow_redirects=False,
+                 use_basic_auth=True, use_proxy=True):
         """
         This is a simple wrapper around a urllib2 request object which helps
         with some common tasks like serialization, cache, etc.
@@ -54,6 +56,9 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
         self.retries_left = retries
         self.timeout = timeout
         self.new_connection = new_connection
+        self.follow_redirects = follow_redirects
+        self.use_basic_auth = use_basic_auth
+        self.use_proxy = use_proxy
 
         self.method = method
         if self.method is None:
@@ -70,11 +75,11 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
         RequestMixIn.__init__(self)
     
     def __eq__(self, other):
-        return self.get_method() == other.get_method() and \
-               self.get_uri() == other.get_uri() and \
-               self.get_headers() == other.get_headers() and \
-               self.get_data() == other.get_data() and \
-               self.get_timeout() == other.get_timeout()
+        return (self.get_method() == other.get_method() and
+                self.get_uri() == other.get_uri() and
+                self.get_headers() == other.get_headers() and
+                self.get_data() == other.get_data() and
+                self.get_timeout() == other.get_timeout())
 
     def add_header(self, key, val):
         """
@@ -121,6 +126,9 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
         sdict['cache'] = self.get_from_cache
         sdict['timeout'] = None if self.timeout is socket._GLOBAL_DEFAULT_TIMEOUT else self.timeout
         sdict['new_connection'] = self.new_connection
+        sdict['follow_redirects'] = self.follow_redirects
+        sdict['use_basic_auth'] = self.use_basic_auth
+        sdict['use_proxy'] = self.use_proxy
             
         return serializable_dict
 
@@ -157,13 +165,18 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
         cache = udict['cache']
         timeout = socket._GLOBAL_DEFAULT_TIMEOUT if udict['timeout'] is None else udict['timeout']
         new_connection = udict['new_connection']
+        follow_redirects = udict['follow_redirects']
+        use_basic_auth = udict['use_basic_auth']
+        use_proxy = udict['use_proxy']
 
         headers_inst = Headers(headers.items())
         url = URL(uri)
         
         return cls(url, data=data, headers=headers_inst,
                    cookies=cookies, cache=cache, method=method,
-                   timeout=timeout, new_connection=new_connection)
+                   timeout=timeout, new_connection=new_connection,
+                   follow_redirects=follow_redirects,
+                   use_basic_auth=use_basic_auth, use_proxy=use_proxy)
 
     def copy(self):
         return copy.deepcopy(self)

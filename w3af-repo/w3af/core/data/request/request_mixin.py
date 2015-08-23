@@ -33,7 +33,9 @@ class RequestMixIn(object):
 
     def dump(self, ignore_headers=()):
         """
-        :return: The HTTP request as it would be sent to the wire.
+        :return: The HTTP request as it would be sent to the wire, with a minor
+                 change, instead of using the path in the second token of the
+                 request we use the URL, this is just a user-friendly feature
 
                  Please note that we're returning a byte-string, with the
                  special characters in the headers and URL encoded as expected
@@ -57,7 +59,7 @@ class RequestMixIn(object):
         """
         :return: request first line as sent to the wire.
         """
-        return u"%s %s HTTP/1.1%s" % (self.get_method(),
+        return u'%s %s HTTP/1.1%s' % (self.get_method(),
                                       self.get_uri().url_encode(),
                                       CRLF)
 
@@ -65,7 +67,7 @@ class RequestMixIn(object):
         """
         :return: A string with the head of the request
         """
-        return u"%s%s" % (self.get_request_line(),
+        return u'%s%s' % (self.get_request_line(),
                           self.dump_headers(ignore_headers=ignore_headers))
 
     def dump_headers(self, ignore_headers=()):
