@@ -14,7 +14,7 @@
 
 [audit.wg_robots_txt]
 
-#[audit.wg_ssl]
+[audit.wg_ssl]
 
 [audit.wg_strange_headers]
 
