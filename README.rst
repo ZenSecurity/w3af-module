@@ -16,6 +16,12 @@ To install w3af as a module you'll have to follow these steps:
 
     $ pip install git+https://github.com/ZenSecurity/w3af-module.git
 
+    or
+
+    $ git clone https://github.com/ZenSecurity/w3af-module.git
+    $ cd w3af-module
+    $ python setup.py install
+
 After some seconds you should be able to move to any directory and from a
 python interpreter run ``import w3af``.
 

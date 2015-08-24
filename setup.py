@@ -3,8 +3,8 @@
 from distutils.core import setup as distutils_setup
 from mod_utils.get_version import get_version
 from mod_utils.pip import get_pip_git_requirements, get_pip_requirements
-from os import listdir
-from os.path import normpath, join
+from os import getcwd, listdir
+from os.path import isfile, join, normpath
 from pip import main as pip_main
 from sys import argv
 from setuptools import find_packages
@@ -12,9 +12,13 @@ from setuptools import find_packages
 
 def setup():
     try:
-        if 'egg_info' in argv:
+        temp_dir = getcwd()
+
+        if not isfile('{}/install.lock'.format(temp_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
             pip_main(['install', 'git+https://github.com/ZenSecurity/sslyze.git'])
+
+            file('{}/install.lock'.format(temp_dir), 'w').close()
 
         profiles_dir = 'w3af-repo/profiles'
 
