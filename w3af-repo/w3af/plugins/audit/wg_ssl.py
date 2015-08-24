@@ -42,8 +42,7 @@ class wg_ssl(AuditPlugin):
         AuditPlugin.__init__(self)
 
         # Internal variables
-        self._result = {}
-        self._min_expire_days = 30
+        self._plugin_xml_result = {}
         self._plugin_name = self.get_name()
         self._response_id = None
 
@@ -63,59 +62,20 @@ class wg_ssl(AuditPlugin):
         """
         Analyze the SSL cert and store the information in the KB.
         """
-        SSLYZE_VERSION = '0.11.0'
         sslyze_plugins = PluginsFinder()
         available_plugins = sslyze_plugins.get_plugins()
         available_commands = sslyze_plugins.get_commands()
-        sslyze_parser = CommandLineParser(available_plugins, SSLYZE_VERSION)
+        sslyze_parser = CommandLineParser(available_plugins, None)
 
-        def get_dict_command_result(command_name, xml):
-            command_dict_result = {}
-
-            if command_name == "certinfo":
-                certificate_validation = xml.find("certificateValidation")
-                for path_validation in certificate_validation.findall("pathValidation"):
-                    command_dict_result["ca_trust"] = {"is_affected": False if (path_validation.attrib["validationResult"] == "ok") else True}
-                command_dict_result["certificate_matches_server_hostname"] = {"is_affected": not literal_eval(certificate_validation.find("hostnameValidation").attrib["certificateMatchesServerHostname"])}
-                command_dict_result["ocsp_stapling"] = {"is_affected": not literal_eval(xml.find("ocspStapling").attrib["isSupported"])}
-                expiration_date = xml.find("expirationDate")
-                # failed here without patch below for certinfo plugin.
-                """
-                from time import gmtime
-                from datetime import date
-                from ssl import cert_time_to_seconds
-
-                ...
-                xml_output.append(cert_chain_xml)
-                ...
-
-                # XML output - expiration date
-
-                # em begin
-                cert_dict = x509_cert.as_dict()
-                expiration_date = gmtime(cert_time_to_seconds(cert_dict['validity']['notAfter']))
-                expire_days = (date(expiration_date.tm_year, expiration_date.tm_mon, expiration_date.tm_mday) - date.today()).days
-                expiration_date_xml = Element("expirationDate", notAfter=cert_dict['validity']['notAfter'],
-                                              expiresDays=expire_days)
-                xml_output.append(expiration_date_xml)
-                # em end
-                """
-                command_dict_result["expiration_date"] = {"not_after": expiration_date.attrib["notAfter"],
-                                            "expires_days": expiration_date.attrib["expiresDays"]}
-            elif command_name == "hsts":
-                command_dict_result["is_affected"] = not literal_eval(xml.find("httpStrictTransportSecurity").attrib["isSupported"])
-            elif command_name == "heartbleed":
-                command_dict_result["is_affected"] = literal_eval(xml.find("openSslHeartbleed").attrib["isVulnerable"])
-            elif command_name == "chrome_sha1":
-                command_dict_result["is_affected"] = literal_eval(xml.find("chromeSha1Deprecation").attrib["isServerAffected"])
-            elif command_name in ("sslv2", "sslv3"):
-                command_dict_result["is_affected"] = True if len(xml.find("acceptedCipherSuites")) else False
-            else:
-                om.out.error("Unexpected command: {}".format(command_name))
-            return command_dict_result
-
-        command_line_arguments = ["--hsts", "--chrome_sha1", "--heartbleed", "--sslv2", "--sslv3",
-                                  "--certinfo=basic", self._target_url.get_domain()]
+        command_line_arguments = [
+            "--hsts",
+            "--chrome_sha1",
+            "--heartbleed",
+            "--sslv2",
+            "--sslv3",
+            "--certinfo=basic",
+            self._target_url.get_domain()
+        ]
 
         original_argv = argv[:]
         argv[1:] = command_line_arguments
@@ -137,31 +97,8 @@ class wg_ssl(AuditPlugin):
                     plugin_instance = available_commands[command]()
                     try:
                         # Process the task
-                        """
-                        #!/usr/bin/env python
-                        # certificate file corrector
-
-                        cert_prefix = "-----BEGIN CERTIFICATE-----\n"
-                        cert_postfix = "-----END CERTIFICATE-----\n"
-                        cert_lines = False
-
-                        temp_file = open("temp.pem", "wa")
-
-                        for line in open("mozilla.pem", "r"):
-                            if line.startswith("#"):
-                                continue
-                            elif line.startswith(cert_prefix):
-                                temp_file.write(cert_prefix)
-                                cert_lines = True
-                            elif line.startswith(cert_postfix):
-                                temp_file.write(cert_postfix)
-                                cert_lines = False
-                            elif cert_lines:
-                                temp_file.write(line)
-                        """
                         result = plugin_instance.process_task(target, command, args)
-                        xml = result.get_xml_result()
-                        self._result[command] = get_dict_command_result(command, xml)
+                        self._plugin_xml_result[command] = result.get_xml_result()
                     except Exception as e:
                         om.out.error('Unhandled exception when processing --{}: {}.{} - {}'.format(command,
                                                                                                e.__class__.__module__,
@@ -169,8 +106,8 @@ class wg_ssl(AuditPlugin):
                                                                                                e))
             self._is_trusted_cert()
             self._is_certificate_matches_server_hostname()
-            self._is_cert_expired()
             self._is_ocsp_stapling_supported()
+            self._is_cert_expired()
             self._is_sha1_signature()
             self._is_vulnerable_to_heartbleed()
             self._is_hsts_supported()
@@ -178,63 +115,147 @@ class wg_ssl(AuditPlugin):
             self._is_sslv3_supported()
 
     def _is_trusted_cert(self):
-        if self._result["certinfo"]["ca_trust"]["is_affected"]:
-            desc = 'Host uses an invalid certificate.'
+        plugin = 'certinfo'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = False
+        trust_store = {}
+
+        certificate_validation = self._plugin_xml_result[plugin].find("certificateValidation")
+
+        for path_validation in certificate_validation.findall("pathValidation"):
+            name = path_validation.get('usingTrustStore', None)
+            version = path_validation.get('trustStoreVersion', None)
+            result = path_validation.get('validationResult', None)
+            if name:
+                trust_store[name] = {}
+            if version:
+                trust_store[name]['version'] = version
+            if result:
+                trust_store[name]['result'] = result
+                is_affected = True if result == 'self signed certificate' else False
+
+        if is_affected:
+            desc = 'Host uses self signed certificate.'
             v = Vuln("Invalid SSL certificate", desc, severity.HIGH, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_invalid_ssl', v)
 
     def _is_certificate_matches_server_hostname(self):
-        if self._result["certinfo"]["certificate_matches_server_hostname"]["is_affected"]:
+        plugin = 'certinfo'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        certificate_validation = self._plugin_xml_result[plugin].find("certificateValidation")
+        is_affected = not literal_eval(certificate_validation.find("hostnameValidation").attrib["certificateMatchesServerHostname"])
+
+        if is_affected:
             desc = 'Host certificate mismatch with server virtual host.'
             v = Vuln("Invalid SSL certificate", desc, severity.HIGH, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_hostname_mismatch_ssl', v)
 
-    def _is_cert_expired(self):
-        if self._result["certinfo"]["expiration_date"]["expires_days"] < self._min_expire_days:
-            desc = 'Host certificate expiration date: {}.'.format(self._result["certinfo"]["expiration_date"]["not_after"])
-            v = Vuln("Soon to expire SSL certificate", desc, severity.HIGH, self._response_id, self._plugin_name)
-            v.set_url(self._target_url)
-            self.kb_append(self, 'wg_expired_ssl', v)
-
     def _is_ocsp_stapling_supported(self):
-        if self._result["certinfo"]["ocsp_stapling"]["is_affected"]:
+        plugin = 'certinfo'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = not literal_eval(self._plugin_xml_result[plugin].find("ocspStapling").attrib["isSupported"])
+
+        if is_affected:
             desc = 'Host does not support OCSP stapling.'
             v = Vuln("Invalid SSL connection", desc, severity.MEDIUM, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_ocsp_stapling_ssl', v)
 
+    def _is_cert_expired(self):
+        plugin = 'certinfo'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        expirationDate_element = self._plugin_xml_result[plugin].find("expirationDate")
+        expiration_date = {
+            "not_after": expirationDate_element.attrib["notAfter"],
+            "expires_days": expirationDate_element.attrib["expiresDays"]
+        }
+        is_affected = expiration_date["expires_days"] < 30
+
+        if is_affected:
+            desc = 'Host certificate expiration date: {}.'.format(expiration_date["not_after"])
+            v = Vuln("Soon to expire SSL certificate", desc, severity.HIGH, self._response_id, self._plugin_name)
+            v.set_url(self._target_url)
+            self.kb_append(self, 'wg_expired_ssl', v)
+
     def _is_sha1_signature(self):
-        if self._result["chrome_sha1"]["is_affected"]:
+        plugin = 'chrome_sha1'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = literal_eval(self._plugin_xml_result[plugin].find("chromeSha1Deprecation").attrib["isServerAffected"])
+
+        if is_affected:
             desc = 'Host certificate signed by sha1 signature.'
             v = Vuln("Invalid SSL certificate", desc, severity.MEDIUM, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_sha1_signature_ssl', v)
 
     def _is_vulnerable_to_heartbleed(self):
-        if self._result["heartbleed"]["is_affected"]:
+        plugin = 'heartbleed'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = literal_eval(self._plugin_xml_result[plugin].find("openSslHeartbleed").attrib["isVulnerable"])
+
+        if is_affected:
             desc = 'Host is vulnerable to heartbleed attack.'
             v = Vuln("Insecure SSL version", desc, severity.HIGH, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_heartbleed_ssl', v)
 
     def _is_hsts_supported(self):
-        if self._result["hsts"]["is_affected"]:
+        plugin = 'hsts'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = not literal_eval(self._plugin_xml_result[plugin].find("httpStrictTransportSecurity").attrib["isSupported"])
+
+        if is_affected:
             desc = 'Host has no HTTP "Strict-Transport-Security" header.'
             v = Vuln("Server header", desc, severity.MEDIUM, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_hsts_ssl', v)
 
     def _is_sslv2_supported(self):
-        if self._result["sslv2"]["is_affected"]:
+        plugin = 'sslv2'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = True if len(self._plugin_xml_result[plugin].find("acceptedCipherSuites")) else False
+
+        if is_affected:
             desc = 'Host supports vulnerable ssl v2.'
             v = Vuln("Insecure SSL version", desc, severity.MEDIUM, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
             self.kb_append(self, 'wg_sslv2_ssl', v)
 
     def _is_sslv3_supported(self):
-        if self._result["sslv3"]["is_affected"]:
+        plugin = 'sslv3'
+
+        if plugin not in self._plugin_xml_result:
+            return
+
+        is_affected = True if len(self._plugin_xml_result[plugin].find("acceptedCipherSuites")) else False
+
+        if is_affected:
             desc = 'Host supports vulnerable ssl v3.'
             v = Vuln("Insecure SSL version", desc, severity.MEDIUM, self._response_id, self._plugin_name)
             v.set_url(self._target_url)
