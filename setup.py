@@ -13,6 +13,8 @@ from setuptools import find_packages
 def setup():
     try:
         temp_dir = getcwd()
+        print temp_dir
+        raw_input()
 
         if not isfile('{}/install.lock'.format(temp_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
