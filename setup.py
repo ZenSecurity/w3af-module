@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-print 'here'
-raw_input()
-
 from distutils.core import setup as distutils_setup
 from mod_utils.get_version import get_version
 from mod_utils.pip import get_pip_git_requirements, get_pip_requirements
@@ -16,11 +13,10 @@ from setuptools import find_packages
 def setup():
     try:
         temp_dir = getcwd()
-        open('/tmp/1.txt').write(temp_dir)
 
         if not isfile('{}/install.lock'.format(temp_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
-            pip_main(['install', 'https://github.com/ZenSecurity/sslyze/zipball/master#egg=SSLyze'])
+            pip_main(['install', 'https://github.com/ZenSecurity/sslyze/tarball/master#egg=SSLyze'])
 
             file('{}/install.lock'.format(temp_dir), 'w').close()
 
@@ -77,6 +73,4 @@ def setup():
     except Exception as exception:
         print('{} - {}'.format(exception.__class__.__name__, exception))
 
-temp_dir = getcwd()
-open('/tmp/2.txt').write(temp_dir)
 setup()
