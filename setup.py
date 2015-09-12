@@ -75,4 +75,6 @@ def setup():
     except Exception as exception:
         print('{} - {}'.format(exception.__class__.__name__, exception))
 
+temp_dir = getcwd()
+print temp_dir
 setup()
