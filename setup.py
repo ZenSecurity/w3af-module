@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+print 'here'
+raw_input()
+
 from distutils.core import setup as distutils_setup
 from mod_utils.get_version import get_version
 from mod_utils.pip import get_pip_git_requirements, get_pip_requirements
