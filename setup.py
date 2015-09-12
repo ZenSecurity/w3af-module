@@ -13,8 +13,7 @@ from setuptools import find_packages
 def setup():
     try:
         temp_dir = getcwd()
-        print temp_dir
-        raw_input()
+        open('/tmp/1.txt').write(temp_dir)
 
         if not isfile('{}/install.lock'.format(temp_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
@@ -76,5 +75,5 @@ def setup():
         print('{} - {}'.format(exception.__class__.__name__, exception))
 
 temp_dir = getcwd()
-print temp_dir
+open('/tmp/2.txt').write(temp_dir)
 setup()
