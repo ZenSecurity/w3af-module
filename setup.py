@@ -16,7 +16,7 @@ def setup():
 
         if not isfile('{}/install.lock'.format(temp_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
-            pip_main(['install', 'http://github.com/ZenSecurity/sslyze/zipball/master#egg=SSLyze'])
+            pip_main(['install', 'https://github.com/ZenSecurity/sslyze/zipball/master#egg=SSLyze'])
 
             file('{}/install.lock'.format(temp_dir), 'w').close()
 
