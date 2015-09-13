@@ -14,7 +14,7 @@ To install w3af as a module you'll have to follow these steps:
 
 ::
 
-    $ pip install git+https://github.com/ZenSecurity/w3af-module.git
+    $ pip install https://github.com/ZenSecurity/w3af-module/tarball/master#egg=w3af --verbose
 
     or
 
