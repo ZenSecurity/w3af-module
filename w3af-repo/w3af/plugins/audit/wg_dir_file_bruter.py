@@ -135,7 +135,7 @@ class wg_dir_file_bruter(AuditPlugin):
 
         http_response = self._uri_opener.GET(url, cache=False)
         http_response_code = http_response.get_code()
-        if is_404(http_response) and http_response_code in (204, 301, 302, 404, 503):
+        if is_404(http_response) or http_response_code in (204, 301, 302, 404, 503):
             return
 
         # Looking good, but lets see if this is a false positive or not...
