@@ -17,9 +17,9 @@ def setup():
         if not isfile('{}/install.lock'.format(temp_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
             pip_main(['install', 'https://github.com/ZenSecurity/sslyze/tarball/master#egg=SSLyze', '--verbose'])
-            print('before'*32)
             import os
             print(os.listdir(temp_dir))
+            print('before'*32)
             file('{}/install.lock'.format(temp_dir), 'w').close()
             print('after'*32)
 
