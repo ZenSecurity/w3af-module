@@ -17,9 +17,7 @@ def setup():
         if not isfile('{}/install.lock'.format(lock_dir)):
             # need to install custom library (SSLyze) for wg_ssl audit plugin support
             pip_main(['install', 'https://github.com/ZenSecurity/sslyze/tarball/master#egg=SSLyze', '--verbose'])
-            print('before'*32)
-            file('{}/install.lock'.format(lock_dir), 'w').close()
-            print('after'*32)
+            file('{}/waspc.lock'.format(lock_dir), 'w').close()
 
         profiles_dir = 'w3af-repo/profiles'
 
