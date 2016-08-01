@@ -3,18 +3,23 @@
 from distutils.core import setup as distutils_setup
 from mod_utils.get_version import get_version
 from mod_utils.pip import get_pip_git_requirements, get_pip_requirements
-from os import listdir
+from os import getcwd, listdir
 from os.path import isfile, join, normpath
 from pip import main as pip_main
 from sys import argv
 from setuptools import find_packages
-from tempfile import gettempdir
 
 
 def setup():
     try:
-        # need to install custom library (SSLyze) for wg_ssl audit plugin support
-        pip_main(['install', 'https://github.com/ZenSecurity/sslyze/tarball/master#egg=SSLyze', '--verbose'])
+        lock_dir = getcwd()
+
+        if not isfile('{}/install.lock'.format(lock_dir)):
+            # need to install custom library (SSLyze) for wg_ssl audit plugin support
+            pip_main(['install', 'https://github.com/ZenSecurity/sslyze/tarball/master#egg=SSLyze', '--verbose'])
+            print('before'*32)
+            file('{}/install.lock'.format(lock_dir), 'w').close()
+            print('after'*32)
 
         profiles_dir = 'w3af-repo/profiles'
 
