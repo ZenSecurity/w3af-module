@@ -1,1 +1,1 @@
-include test.txt
+recursive-include w3af *.txt
