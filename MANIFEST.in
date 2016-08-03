@@ -1,1 +1,1 @@
-recursive-include w3af *.*
+recursive-include w3af-repo/w3af *.*
