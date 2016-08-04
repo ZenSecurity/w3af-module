@@ -9,11 +9,10 @@ from pip import main as pip_main
 from sys import argv
 from setuptools import find_packages
 
-import logging, sys
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 def setup():
-    #print(find_packages())
+    print('1337')
+    print(find_packages())
     try:
         profiles_dir = 'w3af-repo/profiles'
 
