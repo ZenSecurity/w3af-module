@@ -1,3 +1,0 @@
-graft w3af
-global-include *.*
-recursive-include w3af *.*
