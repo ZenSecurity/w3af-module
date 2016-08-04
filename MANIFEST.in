@@ -1,2 +1,2 @@
 recursive-include w3af *.*
-recursive-exclude w3af *.txt
+recursive-exclude w3af *.pyc
