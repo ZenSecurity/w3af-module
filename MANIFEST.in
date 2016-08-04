@@ -1,2 +1,2 @@
 recursive-include w3af *.*
-recursive-exclude mod_utils *
+prune mod_utils
