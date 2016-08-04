@@ -11,7 +11,6 @@ from setuptools import find_packages
 
 
 def setup():
-    print(find_packages(exclude=('tests*', 'mod_utils*')))
     try:
         profiles_dir = 'w3af-repo/profiles'
 
@@ -29,7 +28,7 @@ def setup():
             author_email='mailto@zensecurity.su',
             url='https://github.com/ZenSecurity/w3af-module',
 
-            packages=find_packages(exclude=('*tests*', 'mod_utils*')),
+            packages=find_packages(exclude=('tests*', 'mod_utils*')),
             # include everything in source control which lives inside one of the packages identified by find_packages
             include_package_data=True,
 
