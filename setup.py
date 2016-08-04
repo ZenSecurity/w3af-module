@@ -13,7 +13,7 @@ import logging, sys
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 def setup():
-    logging.debug('A debug message!'*32)
+    print(find_packages())
     try:
         profiles_dir = 'w3af-repo/profiles'
 
