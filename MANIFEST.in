@@ -1,1 +1,2 @@
 recursive-include w3af *.*
+prune tests
