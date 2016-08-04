@@ -9,8 +9,11 @@ from pip import main as pip_main
 from sys import argv
 from setuptools import find_packages
 
+import logging, sys
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 def setup():
+    logging.debug('A debug message!'*32)
     try:
         profiles_dir = 'w3af-repo/profiles'
 
