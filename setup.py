@@ -42,8 +42,8 @@ def setup():
             test_suite='nose.collector',
 
             # Require at least the easiest PIP requirements from w3af
-            #install_requires=get_pip_requirements(),
-            #dependency_links=get_pip_git_requirements(),
+            install_requires=get_pip_requirements(),
+            dependency_links=get_pip_git_requirements(),
 
             # Install these scripts
             scripts=['w3af-repo/w3af_console',
