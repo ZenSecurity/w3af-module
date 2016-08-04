@@ -28,7 +28,7 @@ def setup():
             author_email='mailto@zensecurity.su',
             url='https://github.com/ZenSecurity/w3af-module',
 
-            packages=['w3af'],
+            packages=find_packages('w3af'),
             # include everything in source control which lives inside one of the packages identified by find_packages
             include_package_data=True,
 
