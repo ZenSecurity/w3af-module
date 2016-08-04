@@ -11,7 +11,6 @@ from setuptools import find_packages
 
 
 def setup():
-    print(find_packages(''))
     try:
         profiles_dir = 'w3af-repo/profiles'
 
@@ -29,7 +28,7 @@ def setup():
             author_email='mailto@zensecurity.su',
             url='https://github.com/ZenSecurity/w3af-module',
 
-            packages=['w3af'],
+            packages=find_packages(),
             # include everything in source control which lives inside one of the packages identified by find_packages
             include_package_data=True,
 
@@ -43,8 +42,8 @@ def setup():
             test_suite='nose.collector',
 
             # Require at least the easiest PIP requirements from w3af
-            install_requires=get_pip_requirements(),
-            dependency_links=get_pip_git_requirements(),
+            #install_requires=get_pip_requirements(),
+            #dependency_links=get_pip_git_requirements(),
 
             # Install these scripts
             scripts=['w3af-repo/w3af_console',
