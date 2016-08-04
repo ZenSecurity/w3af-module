@@ -13,7 +13,7 @@ import logging, sys
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 def setup():
-    print(find_packages())
+    #print(find_packages())
     try:
         profiles_dir = 'w3af-repo/profiles'
 
@@ -31,7 +31,7 @@ def setup():
             author_email='mailto@zensecurity.su',
             url='https://github.com/ZenSecurity/w3af-module',
 
-            packages=['w3af-repo'], #find_packages(),
+            packages=['w3af'], #find_packages(),
             # include everything in source control which lives inside one of the packages identified by find_packages
             include_package_data=True,
 
