@@ -11,6 +11,7 @@ from setuptools import find_packages
 
 
 def setup():
+    print(find_packages(where='.', exclude=('*tests*', 'mod_utils*')))
     try:
         profiles_dir = 'w3af-repo/profiles'
 
